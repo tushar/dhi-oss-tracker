@@ -108,11 +108,16 @@ type SearchQuery struct {
 }
 
 // GetSearchQueries returns all the search queries we use to find DHI usage
+// These are tuned to find actual DHI registry usage, not false positives like "siddhi.io"
 func GetSearchQueries() []SearchQuery {
 	return []SearchQuery{
-		{"Dockerfiles", `"dhi.io" language:Dockerfile`},
-		{"YAML files", `"dhi.io" language:YAML`},
-		{"GitHub Actions", `"dhi.io" path:.github/workflows`},
+		// FROM dhi.io - Dockerfile base image references (most reliable)
+		{"Dockerfiles", `"FROM dhi.io"`},
+		// image: dhi.io/ - K8s/docker-compose image references with trailing slash
+		// The "image: " prefix distinguishes from URLs like siddhi.io
+		{"YAML/K8s", `"image: dhi.io/" language:YAML`},
+		// dhi.io/ in CI workflows - image references in GitHub Actions
+		{"GitHub Actions", `"dhi.io/" path:.github/workflows`},
 	}
 }
 
