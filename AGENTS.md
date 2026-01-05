@@ -2,11 +2,13 @@
 
 ## Current State
 
-**Status:** ✅ All phases complete - production ready
+**Status:** ✅ All phases complete + enhancements deployed
 
 **Architecture:** 
 - Go backend + SQLite + vanilla HTML/JS frontend
 - Running on port 8000 via systemd
+- Searches: Dockerfiles, YAML files, GitHub Actions workflows
+- 124 projects tracked, 176K+ combined stars
 - GitHub PAT stored in `.env` (not committed)
 - Public URL: https://dhi-oss-usage.exe.xyz:8000/
 
