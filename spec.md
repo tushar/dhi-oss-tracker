@@ -172,9 +172,133 @@ GET  /api/refresh/status    - Get current refresh status
 
 - User authentication (internal tool)
 - Multi-user support
-- Automated scheduled refreshes (manual only for now)
 - Tracking private repositories
-- Email/notification alerts
+- Email/notification alerts (future consideration)
+
+---
+
+## Phase 7: Automated Background Refresh
+
+### Overview
+Automatically refresh data on a schedule without manual intervention.
+
+### Implementation
+
+**Approach:** Built-in Go scheduler using robfig/cron library.
+
+**Configuration:**
+- `REFRESH_SCHEDULE` env var with cron syntax
+- Default: `"0 3 * * *"` (3 AM UTC daily)
+- Set to empty string or `"disabled"` to disable auto-refresh
+
+**Startup Check:**
+- On server startup, check if last successful refresh is >24 hours old
+- If so, trigger an immediate refresh
+- This handles: server restarts, missed scheduled times, first-time setup
+
+**Behavior:**
+- Scheduled refresh runs in background (same as manual)
+- Skip if refresh already running (no overlap)
+- Log scheduled refresh start/completion
+- Manual refresh button still works alongside scheduled
+
+### API Changes
+None - uses existing `/api/refresh` infrastructure internally.
+
+### Configuration Example
+```bash
+# In .env or systemd environment
+REFRESH_SCHEDULE="0 3 * * *"   # Daily at 3 AM UTC
+REFRESH_SCHEDULE="0 */6 * * *" # Every 6 hours
+REFRESH_SCHEDULE=""            # Disabled
+```
+
+---
+
+## Phase 8: Historical Tracking & Time-based View
+
+### Overview
+Track DHI adoption over time and visualize trends.
+
+### Data Model
+
+**New table: `refresh_snapshots`**
+```sql
+CREATE TABLE refresh_snapshots (
+    id INTEGER PRIMARY KEY,
+    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    total_projects INTEGER,
+    total_stars INTEGER,
+    popular_count INTEGER,   -- 1000+ stars
+    notable_count INTEGER    -- 100-999 stars
+);
+```
+
+**Tracking approach:**
+- Record one snapshot per successful refresh
+- Aggregate data only (not per-project star history)
+- Keep daily granularity for now
+
+**Why aggregate only:**
+- Answers the key question: "Is DHI adoption growing?"
+- Simpler data model and queries
+- Per-project history can be added later if needed
+
+### API Endpoints
+
+**GET /api/history**
+```json
+{
+  "snapshots": [
+    {"date": "2026-01-05", "total_projects": 90, "total_stars": 172400},
+    {"date": "2026-01-06", "total_projects": 92, "total_stars": 173100},
+    ...
+  ]
+}
+```
+
+**GET /api/projects/new?since=7d**
+```json
+[
+  {"repo_full_name": "new/project", "stars": 50, "first_seen_at": "2026-01-04T..."}
+]
+```
+
+### UI Changes
+
+**Main Dashboard:**
+- Stats bar: Add "+N new this week" indicator
+- New collapsible section: "New This Week" showing new project cards (if any)
+
+**New "History" Tab:**
+- Line chart showing total projects over time (using Chart.js or similar)
+- Optional: second line for total stars
+- Table/list of new projects grouped by week/month
+
+### UI Mockup (History Tab)
+```
+[Dashboard] [History]
+
+📈 DHI Adoption Over Time
+┌─────────────────────────────────────┐
+│     ╭─────────────────────╮         │
+│    ╱                       ╲        │  <- Line chart
+│   ╱                         ───     │
+│  ╱                                  │
+└─────────────────────────────────────┘
+  Jan    Feb    Mar    Apr    May
+
+📅 New Projects by Week
+┌─────────────────────────────────────┐
+│ Week of Jan 1, 2026 (3 new)         │
+│   • new/repo1 - 45 ⭐               │
+│   • another/repo - 12 ⭐            │
+│   • third/one - 5 ⭐                │
+├─────────────────────────────────────┤
+│ Week of Dec 25, 2025 (1 new)        │
+│   • holiday/project - 8 ⭐          │
+└─────────────────────────────────────┘
+```
 
 ## Success Criteria
 

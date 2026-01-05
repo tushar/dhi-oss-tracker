@@ -144,27 +144,27 @@
 ### Phase 7: Automated Background Refresh
 **Goal:** Automatically refresh data on a schedule without manual intervention.
 
-**Design Considerations:**
-- Refresh frequency: Daily seems reasonable (DHI adoption won't change hourly)
-- Time of day: Run during off-peak hours (e.g., 3 AM UTC)
-- Implementation options:
-  - A) Built-in Go scheduler (ticker/cron library)
-  - B) Systemd timer unit (separate from main service)
-  - C) External cron job calling the API
-- Rate limits: Current refresh takes ~4 minutes, well within GitHub limits
-- Error handling: Log failures, don't crash the service
-- Overlap prevention: Skip if refresh already running
+**Approach:** Built-in Go scheduler using robfig/cron library.
 
-**Proposed Approach:** Built-in Go scheduler using a cron library. Keeps everything self-contained, easy to configure via environment variable.
+**Key Features:**
+- `REFRESH_SCHEDULE` env var with cron syntax (default: `"0 3 * * *"` = 3 AM daily)
+- **Startup check:** If last refresh >24h old, trigger immediate refresh (handles missed schedules, restarts)
+- Skip if refresh already running
+- Manual refresh still works alongside scheduled
 
 **Tasks:**
-- Add cron scheduling library (e.g., robfig/cron)
-- Add REFRESH_SCHEDULE env var (default: "0 3 * * *" = 3 AM daily)
-- Add ability to disable auto-refresh (REFRESH_SCHEDULE="" or "disabled")
-- Log scheduled refresh start/completion
-- Ensure manual refresh still works alongside scheduled
+1. Add robfig/cron dependency
+2. Create scheduler that runs on configured schedule
+3. Add startup check for stale data (>24h since last refresh)
+4. Add REFRESH_SCHEDULE env var parsing (empty = disabled)
+5. Update systemd service with default schedule
+6. Test: scheduled run, startup catch-up, manual still works
 
-**Verify:** Service auto-refreshes at configured time, logs show scheduled runs, manual refresh still works.
+**Verify:** 
+- Server auto-refreshes at configured time
+- Server refreshes on startup if data is stale
+- Logs show scheduled vs manual runs
+- Manual refresh still works
 
 **Status:** ⬜ Not started
 
@@ -173,35 +173,41 @@
 ### Phase 8: Historical Tracking & Time-based View
 **Goal:** Track DHI adoption over time and visualize trends.
 
-**Design Considerations:**
-- What to track:
-  - When each project was first discovered (already have first_seen_at)
-  - Star count history (snapshot at each refresh)
-  - Total project count over time
-- Storage: star_history table (project_id, stars, recorded_at)
-- Views to add:
-  - "New This Week/Month" section on dashboard
-  - Timeline/history tab showing adoption growth
-  - Per-project star history (optional, might be overkill)
-- Visualization: Simple chart showing projects over time, or just a table
+**Approach:** Aggregate snapshots only (not per-project star history).
 
-**Proposed Approach:** 
-- Add star_history table, record snapshot on each refresh
-- Add /api/history endpoint returning time-series data
-- Add new "History" tab in UI with:
-  - Line chart: total projects over time
-  - "New projects" list grouped by week/month
-  - Optional: star growth for top projects
+**Data Model:**
+- New `refresh_snapshots` table: total_projects, total_stars, popular_count, notable_count, recorded_at
+- Record one snapshot per successful refresh
+- Daily granularity
+
+**Why aggregate only:** Answers "Is DHI adoption growing?" without complexity of per-project tracking. Can add per-project later if needed.
+
+**API Endpoints:**
+- `GET /api/history` - time-series of snapshots
+- `GET /api/projects/new?since=7d` - projects first seen in last N days
+
+**UI Changes:**
+- Main dashboard: "+N new this week" in stats bar + collapsible "New This Week" section
+- New "History" tab:
+  - Line chart (Chart.js): total projects over time
+  - Optional second line: total stars
+  - New projects grouped by week/month
 
 **Tasks:**
-- Create star_history table (or rename to refresh_snapshots)
-- Record snapshot data on each refresh completion
-- API endpoint: GET /api/history (returns time-series)
-- API endpoint: GET /api/projects/new?since=7d (new projects)
-- UI: Add History tab with chart (use simple library like Chart.js)
-- UI: Add "New this week" badge/section on main dashboard
+1. Create refresh_snapshots table
+2. Record snapshot on each refresh completion
+3. API: GET /api/history endpoint
+4. API: GET /api/projects/new?since=N endpoint
+5. UI: Add "+N new this week" to stats bar
+6. UI: Add collapsible "New This Week" section on dashboard
+7. UI: Add "History" tab with Chart.js line chart
+8. UI: Add new projects by week list in History tab
 
-**Verify:** History tab shows adoption trend, new projects highlighted, data accumulates over multiple refreshes.
+**Verify:** 
+- Snapshots accumulate over multiple refreshes
+- History tab shows trend chart
+- New projects highlighted on dashboard
+- Data persists across restarts
 
 **Status:** ⬜ Not started
 
