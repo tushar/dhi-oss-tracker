@@ -2,11 +2,17 @@
 
 ## Current State
 
-**Status:** Project initialization - gathering requirements
+**Status:** Spec complete, ready to begin Phase 1
 
-**Architecture:** TBD
+**Architecture:** 
+- Go backend + SQLite + vanilla HTML/JS frontend
+- Will run on port 8000
+- GitHub PAT stored in `.env` (not committed)
 
-**Key Files:** TBD
+**Key Files:**
+- `spec.md` - Full specification
+- `.env` - GitHub token (gitignored)
+- `.gitignore` - Excludes .env
 
 ---
 
@@ -31,10 +37,107 @@
 
 ## Phases
 
-*To be defined after spec is complete*
+### Phase 1: Project Skeleton & Database
+**Goal:** Set up Go project structure, SQLite database with schema, basic server running.
+
+**Tasks:**
+- Initialize Go module
+- Create database schema (projects, refresh_jobs tables)
+- Basic HTTP server on port 8000
+- Health check endpoint
+
+**Verify:** Server starts, health endpoint returns 200, database file created.
+
+**Status:** ⬜ Not started
+
+---
+
+### Phase 2: GitHub API Integration
+**Goal:** Implement GitHub code search and repo details fetching.
+
+**Tasks:**
+- GitHub client with PAT authentication
+- Code search for "dhi.io" in Dockerfiles
+- Fetch repo details (stars, description)
+- Handle pagination and rate limits
+- Store results in database
+
+**Verify:** Can trigger search, results stored in DB, rate limits respected.
+
+**Status:** ⬜ Not started
+
+---
+
+### Phase 3: API Endpoints
+**Goal:** REST API for frontend to consume.
+
+**Tasks:**
+- GET /api/projects - list with filtering/sorting
+- GET /api/stats - summary statistics
+- POST /api/refresh - trigger async refresh
+- GET /api/refresh/status - check refresh status
+
+**Verify:** All endpoints return correct data, refresh runs async.
+
+**Status:** ⬜ Not started
+
+---
+
+### Phase 4: Basic Frontend
+**Goal:** Functional UI showing projects and stats.
+
+**Tasks:**
+- HTML page with CSS styling
+- Display summary stats
+- Display project list (table)
+- Search box for filtering
+- Sort controls
+- Refresh button with status indicator
+
+**Verify:** Can view projects, search works, sort works, refresh triggers and updates.
+
+**Status:** ⬜ Not started
+
+---
+
+### Phase 5: Enhanced UX - Popularity Tiers
+**Goal:** Visual hierarchy based on project popularity.
+
+**Tasks:**
+- Popular projects section (1000+ stars) with cards
+- Notable projects section (100-999 stars)
+- Star count filter dropdown
+- Visual polish and responsive design
+
+**Verify:** Popular/notable sections display correctly, filter works, looks good on mobile.
+
+**Status:** ⬜ Not started
+
+---
+
+### Phase 6: Systemd & Production Ready
+**Goal:** Persistent deployment on exe.dev.
+
+**Tasks:**
+- Create systemd service file
+- Install and enable service
+- Verify auto-restart behavior
+- Document deployment
+
+**Verify:** Service runs after restart, accessible at public URL.
+
+**Status:** ⬜ Not started
+
+---
+
+### Future Phases (Not Yet Planned in Detail)
+- Historical tracking (star count over time)
+- Trend visualization (charts)
+- "New this week" indicators
+- Automated scheduled refreshes
 
 ---
 
 ## Spec Reference
 
-See `spec.md` for detailed requirements (to be created).
+See `spec.md` for detailed requirements.
