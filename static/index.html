@@ -279,6 +279,25 @@
             text-decoration: underline;
         }
 
+        .file-link {
+            color: var(--primary);
+            text-decoration: none;
+            opacity: 0.8;
+        }
+
+        .file-link:hover {
+            opacity: 1;
+            text-decoration: underline;
+        }
+
+        .project-card .meta .file-link {
+            color: var(--text-muted);
+        }
+
+        .project-card .meta .file-link:hover {
+            color: var(--primary);
+        }
+
         .empty-state {
             text-align: center;
             padding: 40px;
@@ -399,10 +418,11 @@
                         <th onclick="sortTable('stars')">Stars</th>
                         <th>Description</th>
                         <th>Language</th>
+                        <th>File</th>
                     </tr>
                 </thead>
                 <tbody id="projectsBody">
-                    <tr><td colspan="4" class="loading">Loading...</td></tr>
+                    <tr><td colspan="5" class="loading">Loading...</td></tr>
                 </tbody>
             </table>
         </section>
@@ -450,7 +470,7 @@
                         <h3><a href="${p.github_url}" target="_blank">${p.repo_full_name}</a></h3>
                         <div class="stars">⭐ ${formatNumber(p.stars)}</div>
                         <div class="description">${p.description || 'No description'}</div>
-                        <div class="meta">${p.primary_language || 'Unknown'} • ${p.dockerfile_path}</div>
+                        <div class="meta">${p.primary_language || 'Unknown'} • <a href="${p.file_url || p.github_url}" target="_blank" class="file-link" title="View DHI reference">${p.dockerfile_path}</a></div>
                     </div>
                 `).join('');
             } catch (err) {
@@ -476,7 +496,7 @@
                         <h3><a href="${p.github_url}" target="_blank">${p.repo_full_name}</a></h3>
                         <div class="stars">⭐ ${formatNumber(p.stars)}</div>
                         <div class="description">${p.description || 'No description'}</div>
-                        <div class="meta">${p.primary_language || 'Unknown'} • ${p.dockerfile_path}</div>
+                        <div class="meta">${p.primary_language || 'Unknown'} • <a href="${p.file_url || p.github_url}" target="_blank" class="file-link" title="View DHI reference">${p.dockerfile_path}</a></div>
                     </div>
                 `).join('');
             } catch (err) {
@@ -501,7 +521,7 @@
                 const tbody = document.getElementById('projectsBody');
 
                 if (!projects || projects.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No projects found</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No projects found</td></tr>';
                     return;
                 }
 
@@ -511,6 +531,7 @@
                         <td>⭐ ${formatNumber(p.stars)}</td>
                         <td>${truncate(p.description || '', 80)}</td>
                         <td>${p.primary_language || '-'}</td>
+                        <td><a href="${p.file_url || p.github_url}" target="_blank" class="file-link" title="View DHI reference">📄</a></td>
                     </tr>
                 `).join('');
             } catch (err) {
