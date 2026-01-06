@@ -212,6 +212,8 @@
 **Status:** ✅ Complete (2026-01-06)
 - Backend: refresh_snapshots table, /api/history, /api/projects/new, new_this_week in stats
 - Frontend: "New This Week" section, Dashboard/History tabs, Chart.js trend chart, projects by week list
+- Adoption dates: Fetches actual adoption date from GitHub Commits API (first commit of file)
+- Uses adopted_at instead of first_seen_at for accurate adoption timelines
 
 ---
 
