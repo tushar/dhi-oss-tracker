@@ -71,6 +71,35 @@ dhi-oss-usage/
 └── dhi-oss-usage.service   # Systemd service file
 ```
 
+## Documentation for AI Agents
+
+This project is designed to be worked on by AI coding agents. Two key files provide context:
+
+### spec.md
+The **product specification** - describes what the application should do:
+- Feature requirements and user stories
+- API endpoint specifications with request/response examples
+- Database schema
+- UI/UX guidelines
+- Phased development plan
+
+### AGENTS.md
+The **development state and working rules** - describes how to work on this project:
+- Current project state and architecture overview
+- Working rules (git usage, commit practices, verification steps)
+- Phase completion status
+- Bug tracking with status
+- Decision log explaining key technical choices
+
+### Keeping Docs Updated
+
+**Anyone working on this project (human or AI) is responsible for keeping `spec.md` and `AGENTS.md` up to date.** This ensures that any agent can quickly get full context on the project state, understand what's been built, and continue development seamlessly.
+
+After making changes:
+1. Update `AGENTS.md` with current state, completed work, and any new decisions
+2. Update `spec.md` if requirements, APIs, or schemas changed
+3. Commit documentation updates alongside code changes
+
 ## Configuration
 
 Environment variables:
