@@ -262,16 +262,16 @@ func (a *API) fetchAdoptionDates(ctx context.Context) {
 		default:
 		}
 
-		log.Printf("Fetching adoption date for %s (%d/%d)", p.RepoFullName, i+1, len(projects))
+		log.Printf("Fetching adoption info for %s (%d/%d)", p.RepoFullName, i+1, len(projects))
 
-		adoptedAt, err := a.ghClient.GetFileFirstCommitDate(ctx, p.RepoFullName, p.DockerfilePath)
+		adoptionInfo, err := a.ghClient.GetFileFirstCommit(ctx, p.RepoFullName, p.DockerfilePath)
 		if err != nil {
-			log.Printf("Error getting adoption date for %s: %v", p.RepoFullName, err)
+			log.Printf("Error getting adoption info for %s: %v", p.RepoFullName, err)
 			// If rate limited, wait and retry
 			if strings.Contains(err.Error(), "rate limited") {
 				log.Printf("Rate limited, waiting 60s...")
 				time.Sleep(60 * time.Second)
-				adoptedAt, err = a.ghClient.GetFileFirstCommitDate(ctx, p.RepoFullName, p.DockerfilePath)
+				adoptionInfo, err = a.ghClient.GetFileFirstCommit(ctx, p.RepoFullName, p.DockerfilePath)
 				if err != nil {
 					log.Printf("Retry failed for %s: %v", p.RepoFullName, err)
 					continue
@@ -281,10 +281,10 @@ func (a *API) fetchAdoptionDates(ctx context.Context) {
 			}
 		}
 
-		if err := a.db.UpdateProjectAdoptionDate(p.ID, *adoptedAt); err != nil {
-			log.Printf("Error updating adoption date for %s: %v", p.RepoFullName, err)
+		if err := a.db.UpdateProjectAdoption(p.ID, adoptionInfo.Date, adoptionInfo.CommitURL); err != nil {
+			log.Printf("Error updating adoption info for %s: %v", p.RepoFullName, err)
 		} else {
-			log.Printf("Set adoption date for %s: %s", p.RepoFullName, adoptedAt.Format("2006-01-02"))
+			log.Printf("Set adoption for %s: %s (%s)", p.RepoFullName, adoptionInfo.Date.Format("2006-01-02"), adoptionInfo.CommitURL)
 		}
 
 		// Rate limit: commits API is part of the 5000/hr limit

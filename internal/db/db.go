@@ -23,6 +23,7 @@ type Project struct {
 	FileURL         string     `json:"file_url"`
 	SourceType      string     `json:"source_type"`
 	AdoptedAt       *time.Time `json:"adopted_at"`
+	AdoptionCommit  string     `json:"adoption_commit"`
 	FirstSeenAt     time.Time  `json:"first_seen_at"`
 	LastSeenAt      time.Time  `json:"last_seen_at"`
 	CreatedAt       time.Time  `json:"created_at"`
@@ -74,6 +75,7 @@ func (db *DB) Migrate() error {
 		file_url TEXT DEFAULT '',
 		source_type TEXT DEFAULT '',
 		adopted_at TIMESTAMP,
+		adoption_commit TEXT DEFAULT '',
 		first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -115,6 +117,8 @@ func (db *DB) Migrate() error {
 
 	// Migration: add adopted_at column if it doesn't exist (ignore error if already exists)
 	db.Exec("ALTER TABLE projects ADD COLUMN adopted_at TIMESTAMP")
+	db.Exec("ALTER TABLE projects ADD COLUMN adoption_commit TEXT DEFAULT ''")
+
 
 	return nil
 }
@@ -152,7 +156,7 @@ type ProjectFilter struct {
 }
 
 func (db *DB) ListProjects(filter ProjectFilter) ([]Project, error) {
-	query := `SELECT id, repo_full_name, github_url, stars, description, primary_language, dockerfile_path, file_url, source_type, adopted_at, first_seen_at, last_seen_at, created_at, updated_at FROM projects WHERE 1=1`
+	query := `SELECT id, repo_full_name, github_url, stars, description, primary_language, dockerfile_path, file_url, source_type, adopted_at, adoption_commit, first_seen_at, last_seen_at, created_at, updated_at FROM projects WHERE 1=1`
 	args := []interface{}{}
 
 	if filter.MinStars > 0 {
@@ -207,7 +211,7 @@ func (db *DB) ListProjects(filter ProjectFilter) ([]Project, error) {
 	var projects []Project
 	for rows.Next() {
 		var p Project
-		err := rows.Scan(&p.ID, &p.RepoFullName, &p.GitHubURL, &p.Stars, &p.Description, &p.PrimaryLanguage, &p.DockerfilePath, &p.FileURL, &p.SourceType, &p.AdoptedAt, &p.FirstSeenAt, &p.LastSeenAt, &p.CreatedAt, &p.UpdatedAt)
+		err := rows.Scan(&p.ID, &p.RepoFullName, &p.GitHubURL, &p.Stars, &p.Description, &p.PrimaryLanguage, &p.DockerfilePath, &p.FileURL, &p.SourceType, &p.AdoptedAt, &p.AdoptionCommit, &p.FirstSeenAt, &p.LastSeenAt, &p.CreatedAt, &p.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -352,7 +356,7 @@ func (db *DB) GetSnapshots(limit int) ([]RefreshSnapshot, error) {
 
 // GetNewProjectsSince returns projects adopted after the given time
 func (db *DB) GetNewProjectsSince(since time.Time) ([]Project, error) {
-	query := `SELECT id, repo_full_name, github_url, stars, description, primary_language, dockerfile_path, file_url, source_type, adopted_at, first_seen_at, last_seen_at, created_at, updated_at 
+	query := `SELECT id, repo_full_name, github_url, stars, description, primary_language, dockerfile_path, file_url, source_type, adopted_at, adoption_commit, first_seen_at, last_seen_at, created_at, updated_at 
 		FROM projects WHERE adopted_at IS NOT NULL AND adopted_at > ? ORDER BY adopted_at DESC`
 
 	rows, err := db.Query(query, since)
@@ -364,7 +368,7 @@ func (db *DB) GetNewProjectsSince(since time.Time) ([]Project, error) {
 	var projects []Project
 	for rows.Next() {
 		var p Project
-		err := rows.Scan(&p.ID, &p.RepoFullName, &p.GitHubURL, &p.Stars, &p.Description, &p.PrimaryLanguage, &p.DockerfilePath, &p.FileURL, &p.SourceType, &p.AdoptedAt, &p.FirstSeenAt, &p.LastSeenAt, &p.CreatedAt, &p.UpdatedAt)
+		err := rows.Scan(&p.ID, &p.RepoFullName, &p.GitHubURL, &p.Stars, &p.Description, &p.PrimaryLanguage, &p.DockerfilePath, &p.FileURL, &p.SourceType, &p.AdoptedAt, &p.AdoptionCommit, &p.FirstSeenAt, &p.LastSeenAt, &p.CreatedAt, &p.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -382,7 +386,7 @@ func (db *DB) GetNewProjectsCount(since time.Time) (int, error) {
 
 // GetProjectsWithoutAdoptionDate returns projects that need adoption date fetched
 func (db *DB) GetProjectsWithoutAdoptionDate() ([]Project, error) {
-	query := `SELECT id, repo_full_name, github_url, stars, description, primary_language, dockerfile_path, file_url, source_type, adopted_at, first_seen_at, last_seen_at, created_at, updated_at 
+	query := `SELECT id, repo_full_name, github_url, stars, description, primary_language, dockerfile_path, file_url, source_type, adopted_at, adoption_commit, first_seen_at, last_seen_at, created_at, updated_at 
 		FROM projects WHERE adopted_at IS NULL`
 
 	rows, err := db.Query(query)
@@ -394,7 +398,7 @@ func (db *DB) GetProjectsWithoutAdoptionDate() ([]Project, error) {
 	var projects []Project
 	for rows.Next() {
 		var p Project
-		err := rows.Scan(&p.ID, &p.RepoFullName, &p.GitHubURL, &p.Stars, &p.Description, &p.PrimaryLanguage, &p.DockerfilePath, &p.FileURL, &p.SourceType, &p.AdoptedAt, &p.FirstSeenAt, &p.LastSeenAt, &p.CreatedAt, &p.UpdatedAt)
+		err := rows.Scan(&p.ID, &p.RepoFullName, &p.GitHubURL, &p.Stars, &p.Description, &p.PrimaryLanguage, &p.DockerfilePath, &p.FileURL, &p.SourceType, &p.AdoptedAt, &p.AdoptionCommit, &p.FirstSeenAt, &p.LastSeenAt, &p.CreatedAt, &p.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -403,8 +407,8 @@ func (db *DB) GetProjectsWithoutAdoptionDate() ([]Project, error) {
 	return projects, rows.Err()
 }
 
-// UpdateProjectAdoptionDate sets the adoption date for a project
-func (db *DB) UpdateProjectAdoptionDate(id int64, adoptedAt time.Time) error {
-	_, err := db.Exec(`UPDATE projects SET adopted_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, adoptedAt, id)
+// UpdateProjectAdoption sets the adoption date and commit URL for a project
+func (db *DB) UpdateProjectAdoption(id int64, adoptedAt time.Time, commitURL string) error {
+	_, err := db.Exec(`UPDATE projects SET adopted_at = ?, adoption_commit = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, adoptedAt, commitURL, id)
 	return err
 }

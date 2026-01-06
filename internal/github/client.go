@@ -211,16 +211,24 @@ func (c *Client) SearchDHIUsage(ctx context.Context, progressFn func(queryName s
 
 // CommitInfo represents a commit from GitHub API
 type CommitInfo struct {
+	SHA    string `json:"sha"`
 	Commit struct {
 		Author struct {
 			Date time.Time `json:"date"`
 		} `json:"author"`
 	} `json:"commit"`
+	HTMLURL string `json:"html_url"`
 }
 
-// GetFileFirstCommitDate gets the date of the first commit for a file
-// This approximates when DHI was adopted (when the file was created or dhi.io was added)
-func (c *Client) GetFileFirstCommitDate(ctx context.Context, repoFullName, filePath string) (*time.Time, error) {
+// AdoptionInfo contains the adoption date and commit details
+type AdoptionInfo struct {
+	Date      time.Time
+	CommitSHA string
+	CommitURL string
+}
+
+// GetFileFirstCommit gets the first commit for a file (when DHI was adopted)
+func (c *Client) GetFileFirstCommit(ctx context.Context, repoFullName, filePath string) (*AdoptionInfo, error) {
 	// Get commits for this file, oldest first (we want the first commit)
 	// GitHub returns newest first by default, so we need to get all and take the last
 	// Or we can use per_page=1 and check if there's a Link header for "last" page
@@ -245,7 +253,11 @@ func (c *Client) GetFileFirstCommitDate(ctx context.Context, repoFullName, fileP
 	
 	// If only one commit, return it
 	if len(commits) == 1 {
-		return &commits[0].Commit.Author.Date, nil
+		return &AdoptionInfo{
+			Date:      commits[0].Commit.Author.Date,
+			CommitSHA: commits[0].SHA,
+			CommitURL: commits[0].HTMLURL,
+		}, nil
 	}
 	
 	// Otherwise, need to paginate to get the oldest commit
@@ -266,7 +278,11 @@ func (c *Client) GetFileFirstCommitDate(ctx context.Context, repoFullName, fileP
 	
 	// Return the oldest commit (last in the array since GitHub returns newest first)
 	oldest := commits[len(commits)-1]
-	return &oldest.Commit.Author.Date, nil
+	return &AdoptionInfo{
+		Date:      oldest.Commit.Author.Date,
+		CommitSHA: oldest.SHA,
+		CommitURL: oldest.HTMLURL,
+	}, nil
 }
 
 // GetRepoDetails fetches details for a single repository

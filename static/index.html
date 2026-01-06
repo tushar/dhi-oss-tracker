@@ -298,6 +298,24 @@
             color: var(--primary);
         }
 
+        .commit-link {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .commit-link:hover {
+            text-decoration: underline;
+        }
+
+        .week-group .commit-link {
+            margin-left: 5px;
+            opacity: 0.7;
+        }
+
+        .week-group .commit-link:hover {
+            opacity: 1;
+        }
+
         .empty-state {
             text-align: center;
             padding: 40px;
@@ -804,7 +822,7 @@
                         <h3><a href="${p.github_url}" target="_blank">${p.repo_full_name}</a></h3>
                         <div class="stars">⭐ ${formatNumber(p.stars)}</div>
                         <div class="description">${p.description || 'No description'}</div>
-                        <div class="meta">${p.primary_language || 'Unknown'} • Adopted ${formatDate(p.adopted_at)}</div>
+                        <div class="meta">${p.primary_language || 'Unknown'} • ${p.adoption_commit ? `<a href="${p.adoption_commit}" target="_blank" class="commit-link">Adopted ${formatDate(p.adopted_at)}</a>` : `Adopted ${formatDate(p.adopted_at)}`}</div>
                     </div>
                 `).join('');
             } catch (err) {
@@ -935,7 +953,7 @@
                         <div class="week-group">
                             <h3>Week of ${new Date(week).toLocaleDateString()} (${projs.length} new)</h3>
                             <ul>
-                                ${projs.map(p => `<li><a href="${p.github_url}" target="_blank">${p.repo_full_name}</a> - ${p.stars} ⭐</li>`).join('')}
+                                ${projs.map(p => `<li><a href="${p.github_url}" target="_blank">${p.repo_full_name}</a> - ${p.stars} ⭐ ${p.adoption_commit ? `<a href="${p.adoption_commit}" target="_blank" class="commit-link" title="View adoption commit">🔗</a>` : ''}</li>`).join('')}
                             </ul>
                         </div>
                     `).join('');
