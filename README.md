@@ -1,0 +1,165 @@
+# DHI OSS Usage Tracker
+
+A web application to track adoption of [Docker Hardened Images (DHI)](https://www.docker.com/products/hardened-images/) by open source projects on GitHub.
+
+**Live:** https://dhi-oss-usage.exe.xyz:8000/
+
+![Dashboard Screenshot](https://img.shields.io/badge/projects-91-blue) ![Stars](https://img.shields.io/badge/combined%20stars-172K-yellow)
+
+## Features
+
+### Dashboard
+- **Summary Statistics:** Total projects, combined stars, popular (1K+) and notable (100+) project counts
+- **New This Week:** Projects that adopted DHI in the current calendar week with clickable links to adoption commits
+- **Popular Projects:** Featured cards for projects with 1000+ stars
+- **Notable Projects:** Highlighted section for projects with 100-999 stars
+- **Full Project List:** Searchable, sortable, filterable table of all projects
+
+### History Tab
+- **Adoption Trend Chart:** Line chart showing cumulative project count and stars over time
+- **New Projects by Week:** Projects grouped by adoption week with links to GitHub and adoption commits
+
+### Automatic Refresh
+- Scheduled daily refresh at 3 AM UTC (configurable)
+- Manual refresh button available
+- Shows "Last updated" and "Next scheduled" times
+
+## How It Works
+
+1. **GitHub Code Search:** Searches for `dhi.io` references in:
+   - Dockerfiles (`FROM dhi.io/...`)
+   - YAML/K8s manifests (`image: dhi.io/...`)
+   - GitHub Actions workflows
+
+2. **Repository Details:** Fetches stars, description, and language for each unique repository
+
+3. **Adoption Date Tracking:** Uses GitHub Commits API to find when each project first added DHI (the actual adoption date, not when we discovered it)
+
+4. **Historical Snapshots:** Records adoption trends over time for visualization
+
+## Tech Stack
+
+- **Backend:** Go
+- **Database:** SQLite
+- **Frontend:** Vanilla HTML/CSS/JavaScript + Chart.js
+- **Deployment:** Systemd service on exe.dev VM
+
+## API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/projects` | List projects with filtering/sorting |
+| `GET /api/projects/new?since=thisweek` | Projects adopted since start of week |
+| `GET /api/stats` | Summary statistics |
+| `GET /api/history?days=14` | Adoption history by date |
+| `GET /api/refresh/status` | Current refresh status and next scheduled time |
+| `POST /api/refresh` | Trigger manual refresh |
+| `GET /api/source-types` | List of source types (Dockerfile, YAML, etc.) |
+
+## Project Structure
+
+```
+dhi-oss-usage/
+├── cmd/server/main.go      # Entry point, scheduler setup
+├── internal/
+│   ├── api/api.go          # REST API handlers
+│   ├── db/db.go            # SQLite database layer
+│   └── github/client.go    # GitHub API client
+├── static/index.html       # Frontend UI
+├── spec.md                 # Detailed specification
+├── AGENTS.md               # Development notes and decisions
+└── dhi-oss-usage.service   # Systemd service file
+```
+
+## Configuration
+
+Environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `8000` | HTTP server port |
+| `DB_PATH` | `dhi-oss-usage.db` | SQLite database path |
+| `GITHUB_TOKEN` | (required) | GitHub PAT with `public_repo` scope |
+| `REFRESH_SCHEDULE` | `0 3 * * *` | Cron schedule for auto-refresh |
+| `STATIC_DIR` | `static` | Static files directory |
+
+## Local Development
+
+```bash
+# Clone and enter directory
+cd dhi-oss-usage
+
+# Set GitHub token
+export GITHUB_TOKEN=your_token_here
+
+# Build and run
+go build -o server ./cmd/server
+./server
+
+# Open http://localhost:8000
+```
+
+## Deployment
+
+The service runs on exe.dev with systemd:
+
+```bash
+# Install service
+sudo cp dhi-oss-usage.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable dhi-oss-usage
+sudo systemctl start dhi-oss-usage
+
+# View logs
+journalctl -u dhi-oss-usage -f
+```
+
+## Database Schema
+
+```sql
+CREATE TABLE projects (
+    id INTEGER PRIMARY KEY,
+    repo_full_name TEXT UNIQUE NOT NULL,
+    github_url TEXT NOT NULL,
+    stars INTEGER DEFAULT 0,
+    description TEXT,
+    primary_language TEXT,
+    dockerfile_path TEXT,
+    file_url TEXT,
+    source_type TEXT,
+    adopted_at TIMESTAMP,        -- When project adopted DHI
+    adoption_commit TEXT,        -- Link to adoption commit
+    first_seen_at TIMESTAMP,
+    last_seen_at TIMESTAMP,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
+
+CREATE TABLE refresh_snapshots (
+    id INTEGER PRIMARY KEY,
+    recorded_at TIMESTAMP,
+    total_projects INTEGER,
+    total_stars INTEGER,
+    popular_count INTEGER,
+    notable_count INTEGER
+);
+```
+
+## Rate Limits
+
+GitHub API rate limits are handled conservatively:
+- Code search: 6 second delay between pages (~10 req/min limit)
+- Repository details: 1 second delay between requests
+- Commits API (for adoption dates): 0.5 second delay
+
+## What is DHI?
+
+Docker Hardened Images (DHI) are minimal, secure, production-ready container base and application images maintained by Docker. DHI Free is the Apache 2.0 licensed tier available at no cost.
+
+- **Registry:** `dhi.io`
+- **Docs:** https://docs.docker.com/dhi/
+- **Product page:** https://www.docker.com/products/hardened-images/
+
+## License
+
+Internal tool - not licensed for external use.
