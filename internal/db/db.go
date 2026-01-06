@@ -38,6 +38,15 @@ type RefreshJob struct {
 	CreatedAt     time.Time  `json:"created_at"`
 }
 
+type RefreshSnapshot struct {
+	ID            int64     `json:"id"`
+	RecordedAt    time.Time `json:"recorded_at"`
+	TotalProjects int       `json:"total_projects"`
+	TotalStars    int       `json:"total_stars"`
+	PopularCount  int       `json:"popular_count"`
+	NotableCount  int       `json:"notable_count"`
+}
+
 func Open(path string) (*DB, error) {
 	db, err := sql.Open("sqlite3", path+"?_journal_mode=WAL&_foreign_keys=on")
 	if err != nil {
@@ -79,8 +88,19 @@ func (db *DB) Migrate() error {
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);
 
+	CREATE TABLE IF NOT EXISTS refresh_snapshots (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		total_projects INTEGER NOT NULL,
+		total_stars INTEGER NOT NULL,
+		popular_count INTEGER NOT NULL,
+		notable_count INTEGER NOT NULL
+	);
+
 	CREATE INDEX IF NOT EXISTS idx_projects_stars ON projects(stars DESC);
 	CREATE INDEX IF NOT EXISTS idx_projects_repo ON projects(repo_full_name);
+	CREATE INDEX IF NOT EXISTS idx_projects_first_seen ON projects(first_seen_at DESC);
+	CREATE INDEX IF NOT EXISTS idx_snapshots_recorded ON refresh_snapshots(recorded_at DESC);
 	`
 
 	_, err := db.Exec(schema)
@@ -280,4 +300,73 @@ func (db *DB) GetLastCompletedRefreshJob() (*RefreshJob, error) {
 		return nil, err
 	}
 	return &job, nil
+}
+
+// Snapshot operations
+
+// RecordSnapshot saves current stats as a snapshot
+func (db *DB) RecordSnapshot() error {
+	total, totalStars, popular, notable, err := db.GetStats()
+	if err != nil {
+		return fmt.Errorf("getting stats for snapshot: %w", err)
+	}
+
+	_, err = db.Exec(`INSERT INTO refresh_snapshots (total_projects, total_stars, popular_count, notable_count) VALUES (?, ?, ?, ?)`,
+		total, totalStars, popular, notable)
+	return err
+}
+
+// GetSnapshots returns historical snapshots, most recent first
+func (db *DB) GetSnapshots(limit int) ([]RefreshSnapshot, error) {
+	query := `SELECT id, recorded_at, total_projects, total_stars, popular_count, notable_count FROM refresh_snapshots ORDER BY recorded_at DESC`
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT %d", limit)
+	}
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var snapshots []RefreshSnapshot
+	for rows.Next() {
+		var s RefreshSnapshot
+		err := rows.Scan(&s.ID, &s.RecordedAt, &s.TotalProjects, &s.TotalStars, &s.PopularCount, &s.NotableCount)
+		if err != nil {
+			return nil, err
+		}
+		snapshots = append(snapshots, s)
+	}
+	return snapshots, rows.Err()
+}
+
+// GetNewProjectsSince returns projects first seen after the given time
+func (db *DB) GetNewProjectsSince(since time.Time) ([]Project, error) {
+	query := `SELECT id, repo_full_name, github_url, stars, description, primary_language, dockerfile_path, file_url, source_type, first_seen_at, last_seen_at, created_at, updated_at 
+		FROM projects WHERE first_seen_at > ? ORDER BY first_seen_at DESC`
+
+	rows, err := db.Query(query, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var projects []Project
+	for rows.Next() {
+		var p Project
+		err := rows.Scan(&p.ID, &p.RepoFullName, &p.GitHubURL, &p.Stars, &p.Description, &p.PrimaryLanguage, &p.DockerfilePath, &p.FileURL, &p.SourceType, &p.FirstSeenAt, &p.LastSeenAt, &p.CreatedAt, &p.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		projects = append(projects, p)
+	}
+	return projects, rows.Err()
+}
+
+// GetNewProjectsCount returns count of projects first seen after the given time
+func (db *DB) GetNewProjectsCount(since time.Time) (int, error) {
+	var count int
+	err := db.QueryRow(`SELECT COUNT(*) FROM projects WHERE first_seen_at > ?`, since).Scan(&count)
+	return count, err
 }

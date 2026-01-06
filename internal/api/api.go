@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -30,10 +31,12 @@ func New(database *db.DB, ghClient *github.Client) *API {
 // RegisterRoutes adds API routes to the mux
 func (a *API) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/projects", a.handleProjects)
+	mux.HandleFunc("/api/projects/new", a.handleNewProjects)
 	mux.HandleFunc("/api/stats", a.handleStats)
 	mux.HandleFunc("/api/source-types", a.handleSourceTypes)
 	mux.HandleFunc("/api/refresh", a.handleRefresh)
 	mux.HandleFunc("/api/refresh/status", a.handleRefreshStatus)
+	mux.HandleFunc("/api/history", a.handleHistory)
 }
 
 // handleProjects returns list of projects with filtering/sorting
@@ -116,12 +119,21 @@ func (a *API) handleStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get count of new projects this week
+	weekAgo := time.Now().Add(-7 * 24 * time.Hour)
+	newThisWeek, err := a.db.GetNewProjectsCount(weekAgo)
+	if err != nil {
+		log.Printf("Error getting new projects count: %v", err)
+		newThisWeek = 0 // Don't fail the whole request
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]int{
-		"total_projects": total,
-		"total_stars":    totalStars,
-		"popular_count":  popular,
-		"notable_count":  notable,
+		"total_projects":  total,
+		"total_stars":     totalStars,
+		"popular_count":   popular,
+		"notable_count":   notable,
+		"new_this_week":   newThisWeek,
 	})
 }
 
@@ -213,6 +225,13 @@ func (a *API) runRefresh(jobID int64, source string) {
 		log.Printf("Error completing job: %v", err)
 	}
 
+	// Record snapshot for historical tracking
+	if err := a.db.RecordSnapshot(); err != nil {
+		log.Printf("Error recording snapshot: %v", err)
+	} else {
+		log.Printf("Recorded snapshot after refresh")
+	}
+
 	log.Printf("Refresh job %d completed (source: %s): %d projects", jobID, source, len(projects))
 }
 
@@ -250,6 +269,89 @@ func (a *API) GetLastRefreshTime() *time.Time {
 		return nil
 	}
 	return job.CompletedAt
+}
+
+// handleHistory returns historical snapshots
+func (a *API) handleHistory(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	limit := 100 // default limit
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if v, err := strconv.Atoi(limitStr); err == nil && v > 0 {
+			limit = v
+		}
+	}
+
+	snapshots, err := a.db.GetSnapshots(limit)
+	if err != nil {
+		log.Printf("Error getting snapshots: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"snapshots": snapshots,
+	})
+}
+
+// handleNewProjects returns projects first seen within a time period
+func (a *API) handleNewProjects(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse 'since' parameter (e.g., "7d", "30d", "1w")
+	sinceStr := r.URL.Query().Get("since")
+	if sinceStr == "" {
+		sinceStr = "7d" // default to 7 days
+	}
+
+	duration, err := parseDuration(sinceStr)
+	if err != nil {
+		http.Error(w, "Invalid 'since' parameter. Use format like '7d', '1w', '30d'", http.StatusBadRequest)
+		return
+	}
+
+	since := time.Now().Add(-duration)
+	projects, err := a.db.GetNewProjectsSince(since)
+	if err != nil {
+		log.Printf("Error getting new projects: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(projects)
+}
+
+// parseDuration parses a duration string like "7d", "1w", "30d"
+func parseDuration(s string) (time.Duration, error) {
+	if len(s) < 2 {
+		return 0, fmt.Errorf("invalid duration: %s", s)
+	}
+
+	unit := s[len(s)-1]
+	valueStr := s[:len(s)-1]
+	value, err := strconv.Atoi(valueStr)
+	if err != nil {
+		return 0, fmt.Errorf("invalid duration value: %s", s)
+	}
+
+	switch unit {
+	case 'd':
+		return time.Duration(value) * 24 * time.Hour, nil
+	case 'w':
+		return time.Duration(value) * 7 * 24 * time.Hour, nil
+	case 'h':
+		return time.Duration(value) * time.Hour, nil
+	default:
+		return 0, fmt.Errorf("invalid duration unit: %c (use h, d, or w)", unit)
+	}
 }
 
 // handleRefreshStatus returns the current refresh status
