@@ -2,7 +2,7 @@
 
 ## Current State
 
-**Status:** Phase 8 in progress - backend complete, frontend next
+**Status:** ✅ Phase 8 complete
 
 **Architecture:** 
 - Go backend + SQLite + vanilla HTML/JS frontend
@@ -209,13 +209,9 @@
 - New projects highlighted on dashboard
 - Data persists across restarts
 
-**Status:** 🔄 In Progress
-- ✅ Backend complete (committed 2026-01-06)
-  - refresh_snapshots table and recording
-  - /api/history endpoint
-  - /api/projects/new endpoint  
-  - new_this_week in /api/stats
-- ⬜ Frontend updates pending
+**Status:** ✅ Complete (2026-01-06)
+- Backend: refresh_snapshots table, /api/history, /api/projects/new, new_this_week in stats
+- Frontend: "New This Week" section, Dashboard/History tabs, Chart.js trend chart, projects by week list
 
 ---
 
