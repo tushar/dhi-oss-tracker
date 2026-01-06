@@ -244,3 +244,17 @@
 ## Spec Reference
 
 See `spec.md` for detailed requirements.
+
+---
+
+## Bugs
+
+### Bug 1: "New This Week" count is incorrect
+**Status:** 🔴 Open
+**Reported:** 2026-01-06
+**Description:** Stats show "+33 New This Week" but only 12 projects were actually adopted in the last 7 days. The count appears inflated.
+
+### Bug 2: Add "Next update scheduled" to header
+**Status:** 🔴 Open
+**Reported:** 2026-01-06
+**Description:** Header shows "Last updated" but should also show when the next scheduled refresh will occur.
