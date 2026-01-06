@@ -250,16 +250,21 @@ CREATE TABLE refresh_snapshots (
 
 ### API Endpoints
 
-**GET /api/history**
+**GET /api/history?days=14**
 ```json
 {
-  "snapshots": [
-    {"date": "2026-01-05", "total_projects": 90, "total_stars": 172400},
-    {"date": "2026-01-06", "total_projects": 92, "total_stars": 173100},
+  "adoptions": [
+    {
+      "date": "2025-12-30",
+      "count": 4,
+      "cumulative_count": 62,
+      "cumulative_stars": 168233
+    },
     ...
   ]
 }
 ```
+Returns adoption data by date based on `adopted_at`, showing daily new adoptions and cumulative totals.
 
 **GET /api/projects/new?since=7d**
 ```json
